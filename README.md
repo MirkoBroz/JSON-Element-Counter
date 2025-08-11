@@ -68,4 +68,4 @@ MIT License — feel free to use, modify, and distribute.
 ---
 
 **Author:** Mirko Broz  
-**Demo:** _(Add URL after deployment)_
+**Demo:** https://mirkobroz.github.io/JSON-Element-Counter/
