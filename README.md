@@ -48,19 +48,6 @@ Example (Netlify drag & drop):
 
 ---
 
-## Running Self-Tests
-
-Click the **Run tests** button in the "Self-test" section to verify core logic.
-
-Test cases cover:
-- Array root length counting
-- Object root with nested structures
-- Primitive roots
-- Mixed arrays of objects
-- Boolean, null, and empty object handling
-
----
-
 ## License
 
 MIT License — feel free to use, modify, and distribute.
