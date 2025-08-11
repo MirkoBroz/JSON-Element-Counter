@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JSON Element Counter</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121934;
+      --panel-2: #0f1630;
+      --text: #e8edff;
+      --muted: #a9b4d0;
+      --accent: #7aa2ff;
+      --ok: #3ddc97;
+      --err: #ff6b6b;
+      --border: #22305f;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: radial-gradient(1200px 600px at 10% -10%, #1b2552 0, transparent 50%),
+                  radial-gradient(900px 600px at 110% -10%, #10204e 0, transparent 50%),
+                  linear-gradient(180deg, #0a0f22, #0a0f22);
+    }
+    header { padding: 32px 20px 16px; text-align: center; }
+    header h1 { margin: 0 0 6px; font-size: clamp(24px, 4vw, 34px); letter-spacing: .3px; }
+    header p { margin: 0; color: var(--muted); }
+
+    .container { max-width: 980px; margin: 16px auto 40px; padding: 0 16px; }
+
+    .card {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(2,8,30,.35);
+      overflow: hidden;
+    }
+
+    .row { display: grid; gap: 16px; grid-template-columns: 1fr; }
+    @media (min-width: 920px) { .row { grid-template-columns: 1fr 420px; } }
+
+    .controls { padding: 14px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--border); background: rgba(0,0,0,.2); }
+
+    textarea {
+      width: 100%; min-height: 320px; resize: vertical; border: none; outline: none;
+      background: #0b132b; color: var(--text); padding: 14px 16px; font-size: 14px; line-height: 1.45; border-top-left-radius: 16px; border-top-right-radius: 16px;
+      border-bottom: 1px solid var(--border);
+      tab-size: 2; caret-color: var(--accent);
+    }
+
+    .hint { padding: 12px 16px; color: var(--muted); font-size: 13px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; background: rgba(255,255,255,.02); }
+
+    .btn { background: #0f1a3a; color: var(--text); border: 1px solid var(--border); padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 14px; transition: transform .08s ease, background .2s ease, border-color .2s ease; user-select: none; }
+    .btn:hover { background: #12204a; border-color: #2b3f7e; }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: linear-gradient(180deg, #1a2a6c, #16255e); border-color: #2b3f7e; }
+    .btn.primary:hover { filter: brightness(1.05); }
+    .btn.ghost { background: transparent; }
+    .btn[disabled] { opacity: .55; cursor: not-allowed; filter: saturate(0.8); }
+
+    .stats { padding: 18px; display: grid; gap: 14px; }
+    .stat { background: rgba(255,255,255,.03); border: 1px dashed var(--border); padding: 14px; border-radius: 14px; display: grid; gap: 8px; }
+    .stat h3 { margin: 0; font-size: 15px; color: var(--muted); font-weight: 600; }
+    .value { font-size: 28px; font-weight: 800; letter-spacing: .3px; }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+
+    .kvs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kv { background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+    .kv b { font-variant-numeric: tabular-nums; }
+
+    details { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.02); }
+    summary { cursor: pointer; padding: 10px 12px; color: var(--muted); }
+    details .inner { padding: 0 12px 12px; }
+
+    .errorBox { display:none; gap:10px; align-items:flex-start; background: rgba(255, 107, 107, .08); border:1px solid rgba(255,107,107,.35); color:#ffdede; padding:12px; border-radius:12px; }
+    .errorBox svg { flex: 0 0 auto; }
+    .errorBox pre { margin:0; overflow:auto; max-height: 140px; white-space: pre-wrap; word-break: break-word; }
+    .badge { display:inline-block; padding: 2px 8px; border:1px solid var(--border); border-radius:999px; font-size:12px; color: var(--muted); }
+    .muted { color: var(--muted); }
+    footer { text-align:center; color: var(--muted); font-size:12px; margin-top:24px; }
+
+    /* Self-test styles */
+    .tests { margin-top: 16px; }
+    .tests table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .tests th, .tests td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+    .tests .pass { color: var(--ok); font-weight: 700; }
+    .tests .fail { color: var(--err); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>JSON Element Counter</h1>
+    <p>Paste your JSON below and click <em>Count</em>. The app shows the number of elements.</p>
+  </header>
+
+  <div class="container">
+    <div class="row">
+      <section class="card" aria-label="Input">
+        <textarea id="jsonInput" placeholder='Example: {"users":[{"id":1},{"id":2}],"meta":{"page":1}}'></textarea>
+        <div class="controls">
+          <button class="btn primary" id="countBtn">Count</button>
+          <button class="btn" id="formatBtn" title="Prettify JSON with indentation">Prettify</button>
+          <button class="btn" id="copyBtn" title="Copy current JSON to clipboard">Copy</button>
+          <button class="btn ghost" id="sampleBtn">Insert example</button>
+          <button class="btn ghost" id="clearBtn">Clear</button>
+          <span class="badge" id="statusBadge">Ready</span>
+        </div>
+        <div class="hint">Note: It must be <strong>valid JSON</strong> (double quotes, no comments).</div>
+      </section>
+
+      <aside class="card" aria-label="Result">
+        <div class="stats">
+          <div class="errorBox" id="errorBox" role="alert" aria-live="polite">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div>
+              <strong>JSON error</strong>
+              <pre id="errorText"></pre>
+            </div>
+          </div>
+
+          <div class="stat">
+            <h3>Root type</h3>
+            <div class="value" id="rootType">–</div>
+          </div>
+
+          <div class="stat">
+            <h3 id="topHeading">Top-level elements</h3>
+            <div class="value ok" id="topCount">0</div>
+          </div>
+
+          <details>
+            <summary>Advanced statistics</summary>
+            <div class="inner">
+              <div class="kvs">
+                <div class="kv"><span>Total objects (incl. nested)</span><b id="objCount">0</b></div>
+                <div class="kv"><span>Total keys (across objects)</span><b id="keyCount">0</b></div>
+                <div class="kv"><span>Total arrays</span><b id="arrCount">0</b></div>
+                <div class="kv"><span>Total array items</span><b id="arrElemCount">0</b></div>
+                <div class="kv"><span>Primitive values (string, number, boolean, null)</span><b id="primCount">0</b></div>
+                <div class="kv"><span>Total nodes (objects + arrays + primitives)</span><b id="nodeCount">0</b></div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </aside>
+    </div>
+
+    <section class="card tests" aria-label="Self-test">
+      <div class="controls">
+        <strong class="muted">Self-test</strong>
+        <button class="btn" id="runTestsBtn">Run tests</button>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <h3>Results</h3>
+          <div id="testResults" class="muted">No tests run yet.</div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Built as a simple local single‑file web app. Save the file and double-click.
+    </footer>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const input = $("jsonInput");
+    const statusBadge = $("statusBadge");
+    const errorBox = $("errorBox");
+    const errorText = $("errorText");
+    const copyBtn = $("copyBtn");
+
+    const rootTypeEl = $("rootType");
+    const topHeadingEl = $("topHeading");
+    const topCountEl = $("topCount");
+
+    const objCountEl = $("objCount");
+    const keyCountEl = $("keyCount");
+    const arrCountEl = $("arrCount");
+    const arrElemCountEl = $("arrElemCount");
+    const primCountEl = $("primCount");
+    const nodeCountEl = $("nodeCount");
+
+    const testResultsEl = $("testResults");
+
+    const nf = new Intl.NumberFormat('en-US');
+
+    function setStatus(text) {
+      statusBadge.textContent = text;
+    }
+
+    function showError(message) {
+      errorText.textContent = String(message);
+      errorBox.style.display = 'grid';
+      setStatus('Error');
+      rootTypeEl.textContent = '–';
+      topCountEl.textContent = '0';
+      objCountEl.textContent = '0';
+      keyCountEl.textContent = '0';
+      arrCountEl.textContent = '0';
+      arrElemCountEl.textContent = '0';
+      primCountEl.textContent = '0';
+      nodeCountEl.textContent = '0';
+    }
+
+    function clearError() {
+      errorBox.style.display = 'none';
+      errorText.textContent = '';
+    }
+
+    function analyze(json) {
+      const stats = {
+        objects: 0,
+        arrays: 0,
+        arrayElements: 0,
+        objectKeys: 0,
+        primitives: 0,
+      };
+
+      function walk(v) {
+        if (Array.isArray(v)) {
+          stats.arrays += 1;
+          stats.arrayElements += v.length;
+          for (const item of v) walk(item);
+        } else if (v !== null && typeof v === 'object') {
+          stats.objects += 1;
+          const keys = Object.keys(v);
+          stats.objectKeys += keys.length;
+          for (const k of keys) walk(v[k]);
+        } else {
+          // primitive (string, number, boolean, null)
+          stats.primitives += 1;
+        }
+      }
+
+      walk(json);
+      return stats;
+    }
+
+    function topInfo(parsed) {
+      const isArray = Array.isArray(parsed);
+      const isObject = parsed !== null && typeof parsed === 'object' && !isArray;
+      const rootType = isArray ? 'Array' : isObject ? 'Object' : 'Primitive';
+      const top = isArray ? parsed.length : isObject ? Object.keys(parsed).length : 1;
+      const heading = isArray ? 'Top-level elements (array length)' : isObject ? 'Top-level elements (number of keys)' : 'Value';
+      return { rootType, top, heading };
+    }
+
+    function updateUI(parsed) {
+      clearError();
+      const { rootType, top, heading } = topInfo(parsed);
+
+      rootTypeEl.textContent = rootType;
+      topHeadingEl.textContent = heading;
+
+      const stats = analyze(parsed);
+
+      topCountEl.textContent = nf.format(top);
+      objCountEl.textContent = nf.format(stats.objects);
+      keyCountEl.textContent = nf.format(stats.objectKeys);
+      arrCountEl.textContent = nf.format(stats.arrays);
+      arrElemCountEl.textContent = nf.format(stats.arrayElements);
+      primCountEl.textContent = nf.format(stats.primitives);
+      nodeCountEl.textContent = nf.format(stats.objects + stats.arrays + stats.primitives);
+
+      setStatus('OK');
+    }
+
+    function countNow() {
+      const text = input.value.trim();
+      if (!text) {
+        setStatus('Empty');
+        clearError();
+        rootTypeEl.textContent = '–';
+        topCountEl.textContent = '0';
+        objCountEl.textContent = '0';
+        keyCountEl.textContent = '0';
+        arrCountEl.textContent = '0';
+        arrElemCountEl.textContent = '0';
+        primCountEl.textContent = '0';
+        nodeCountEl.textContent = '0';
+        return;
+      }
+      try {
+        const parsed = JSON.parse(text);
+        updateUI(parsed);
+      } catch (e) {
+        showError(e.message);
+      }
+    }
+
+    // Copy helpers
+    function fallbackCopyFromInput() {
+      const { selectionStart, selectionEnd, selectionDirection, scrollTop } = input;
+      input.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (_) {}
+      try {
+        input.setSelectionRange(selectionStart ?? 0, selectionEnd ?? 0, selectionDirection || 'none');
+        input.scrollTop = scrollTop || 0;
+      } catch (_) {}
+      return ok;
+    }
+
+    function updateButtonsState() {
+      if (copyBtn) copyBtn.disabled = input.value.trim().length === 0;
+    }
+
+    async function copyNow() {
+      const text = input.value;
+      if (!text) { setStatus('Empty'); return; }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          setStatus('Copied');
+        } else {
+          const ok = fallbackCopyFromInput();
+          setStatus(ok ? 'Copied' : 'Copy failed');
+          if (!ok) showError('Copy failed: clipboard not available.');
+        }
+      } catch (e) {
+        const ok = fallbackCopyFromInput();
+        setStatus(ok ? 'Copied' : 'Copy failed');
+        if (!ok) showError(e.message || 'Copy failed');
+      }
+    }
+
+    // Buttons
+    $("countBtn").addEventListener('click', countNow);
+    $("formatBtn").addEventListener('click', () => {
+      try {
+        const v = JSON.parse(input.value);
+        input.value = JSON.stringify(v, null, 2);
+        setStatus('Formatted');
+        updateButtonsState();
+        updateUI(v);
+      } catch (e) {
+        showError(e.message);
+      }
+    });
+
+    $("sampleBtn").addEventListener('click', () => {
+      const example = {
+        users: [
+          { id: 1, name: "Ada" },
+          { id: 2, name: "Linus" },
+          { id: 3, name: "Grace", tags: ["admin", "owner"] }
+        ],
+        meta: { page: 1, total: 3, flags: { active: true, archived: false } }
+      };
+      input.value = JSON.stringify(example, null, 2);
+      setStatus('Example loaded');
+      countNow();
+      updateButtonsState();
+    });
+
+    $("clearBtn").addEventListener('click', () => {
+      input.value = '';
+      setStatus('Ready');
+      countNow();
+      updateButtonsState();
+    });
+
+    if (copyBtn) copyBtn.addEventListener('click', copyNow);
+
+    // Allow Ctrl+Enter to count
+    input.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        countNow();
+      }
+    });
+
+    // Paste -> auto-count after short delay
+    input.addEventListener('paste', () => setTimeout(countNow, 50));
+
+    input.addEventListener('input', updateButtonsState);
+
+    // --- Self-test harness ---
+    const tests = [
+      {
+        name: 'Array root length',
+        src: '[1,2,3]',
+        expect: { rootType: 'Array', top: 3, stats: { objects: 0, arrays: 1, arrayElements: 3, objectKeys: 0, primitives: 3, nodeCount: 4 } }
+      },
+      {
+        name: 'Object root key count & nesting',
+        src: '{"a":1,"b":2,"c":{"d":[1,null]}}',
+        expect: { rootType: 'Object', top: 3, stats: { objects: 2, arrays: 1, arrayElements: 2, objectKeys: 4, primitives: 4, nodeCount: 7 } }
+      },
+      {
+        name: 'Primitive root',
+        src: '"hi"',
+        expect: { rootType: 'Primitive', top: 1, stats: { objects: 0, arrays: 0, arrayElements: 0, objectKeys: 0, primitives: 1, nodeCount: 1 } }
+      },
+      {
+        name: 'Mixed array of objects',
+        src: '[{"a":[1,2]},{ }]',
+        expect: { rootType: 'Array', top: 2, stats: { objects: 2, arrays: 2, arrayElements: 4, objectKeys: 1, primitives: 2, nodeCount: 6 } }
+      },
+      {
+        name: 'Booleans, nulls, empty object',
+        src: '{"ok":true,"n":null,"arr":[false],"o":{}}',
+        expect: { rootType: 'Object', top: 4, stats: { objects: 2, arrays: 1, arrayElements: 1, objectKeys: 4, primitives: 3, nodeCount: 6 } }
+      }
+    ];
+
+    function runTests() {
+      const rows = [];
+      let passed = 0;
+      for (const t of tests) {
+        try {
+          const parsed = JSON.parse(t.src);
+          const { rootType, top } = topInfo(parsed);
+          const s = analyze(parsed);
+          const nodeCount = s.objects + s.arrays + s.primitives;
+          const cmp = {
+            rootType: rootType === t.expect.rootType,
+            top: top === t.expect.top,
+            objects: s.objects === t.expect.stats.objects,
+            arrays: s.arrays === t.expect.stats.arrays,
+            arrayElements: s.arrayElements === t.expect.stats.arrayElements,
+            objectKeys: s.objectKeys === t.expect.stats.objectKeys,
+            primitives: s.primitives === t.expect.stats.primitives,
+            nodeCount: nodeCount === t.expect.stats.nodeCount,
+          };
+          const ok = Object.values(cmp).every(Boolean);
+          if (ok) passed++;
+          rows.push(`<tr>
+            <td>${t.name}</td>
+            <td><code>${t.src.replaceAll('<','&lt;')}</code></td>
+            <td class="${ok ? 'pass' : 'fail'}">${ok ? 'PASS' : 'FAIL'}</td>
+            <td>${ok ? '' : Object.entries(cmp).filter(([k,v]) => !v).map(([k]) => k).join(', ')}</td>
+          </tr>`);
+        } catch (e) {
+          rows.push(`<tr>
+            <td>${t.name}</td>
+            <td><code>${t.src.replaceAll('<','&lt;')}</code></td>
+            <td class="fail">ERROR</td>
+            <td>${e.message}</td>
+          </tr>`);
+        }
+      }
+      const html = `<table>
+        <thead><tr><th>Test</th><th>Input</th><th>Result</th><th>Details</th></tr></thead>
+        <tbody>${rows.join('')}</tbody>
+        <tfoot><tr><td colspan="4">${passed}/${tests.length} passed</td></tr></tfoot>
+      </table>`;
+      testResultsEl.innerHTML = html;
+    }
+
+    $("runTestsBtn").addEventListener('click', runTests);
+
+    // Initial
+    setStatus('Ready');
+    updateButtonsState();
+  </script>
+</body>
+</html>
