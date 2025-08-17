@@ -54,5 +54,4 @@ MIT License — feel free to use, modify, and distribute.
 
 ---
 
-**Author:** Mirko Broz  
-**Demo:** https://mirkobroz.github.io/JSON-Element-Counter/
+**Demo:** https://titonatural.github.io/JSON-Element-Counter/
